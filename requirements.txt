@@ -1,0 +1,12 @@
+
+python-telegram-bot==20.7
+google-genai
+pdfplumber
+fastapi
+uvicorn
+pydantic
+python-multipart
+aiofiles
+python-dotenv
+pytesseract
+pillow
