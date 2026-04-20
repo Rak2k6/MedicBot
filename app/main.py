@@ -9,7 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bot.telegram_bot import TelegramBot
 
 # Load environment variables
-load_dotenv(dotenv_path='../credential.env')
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'credential.env')
+load_dotenv(dotenv_path=env_path)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

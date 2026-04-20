@@ -58,15 +58,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Extract text and return as JSON
         extracted_data = extract_pdf_text(file_path)
-
+        
         if extracted_data:
             # Check if we have any useful data
             has_content = (
                 extracted_data.get('extracted_text', '').strip() or
-                extracted_data.get('ocr_text', '').strip() or
-                extracted_data.get('tables') or
-                extracted_data.get('lab_tests') or
-                extracted_data.get('ai_extracted_tests')
+                extracted_data.get('lab_tests')
             )
 
             if has_content:
@@ -112,7 +109,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     finally:
         # Clean up temp file
-        import os
         if os.path.exists(file_path):
             os.remove(file_path)
 

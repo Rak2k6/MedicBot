@@ -1,0 +1,10 @@
+[
+  "NEGATIVE",
+  "POSITIVE",
+  "NIL",
+  "ABSENT",
+  "NOT SEEN",
+  "NORMAL",
+  "TRACE",
+  "PRESENT"
+]

@@ -22,7 +22,15 @@ Always include this disclaimer at the end: "This explanation is for educational 
     "disclaimer": "This explanation is for educational purposes only and is not medical advice. Please consult a qualified doctor for interpretation.",
     "enable_explanation": True,
     "max_response_length": 4000,
-    "rate_limit_per_user": 10  # requests per hour
+    "max_response_length": 4000,
+    "rate_limit_per_user": 10,  # requests per hour
+    "ocr_config": {
+        "psm_standard": 3,  # Fully automatic page segmentation, but no OSD. (Default)
+        "psm_columnar": 4,  # Assume a single column of text of variable sizes.
+        "psm_block": 6,     # Assume a single uniform block of text.
+        "oem": 1,           # Neural nets LSTM engine only.
+        "dpi": 300
+    }
 }
 
 def get_setting(key: str):

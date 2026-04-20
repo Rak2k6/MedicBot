@@ -21,3 +21,10 @@ build/
 # IDE
 .idea/
 .vscode/
+
+# Medical Data and Credentials
+credential.env
+datasets/
+*_output.json
+app/*.json
+!app/rules/*.json
