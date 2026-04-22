@@ -10,7 +10,12 @@ import os
 from .image_processing import preprocess_image_for_ocr
 from .easyocr_engine import EasyOCREngine
 from .layout_parser import LayoutParser
+from .ocr_utils import has_text_layer, run_ocrmypdf, post_ocr_normalization
+from .document_classifier import classify_document
+from .clinical_extractor import extract_clinical_data
+from .radiology_extractor import extract_radiology_data
 from typing import List, Dict, Any
+import tempfile
 from config.defaults import get_setting
 
 logger = logging.getLogger(__name__)
@@ -163,11 +168,88 @@ class LabReportExtractor:
 def extract_pdf_text(file_path: str) -> dict:
     """
     Entry point for PDF extraction.
-    Delegates to LabReportExtractor.
+    Delegates to appropriate extractor based on document type.
     """
     try:
-        extractor = LabReportExtractor()
-        return extractor.process_pdf(file_path)
+        # 1. Preprocessing: Check for text layer and ocrmypdf
+        target_pdf_path = file_path
+        cleanup_needed = False
+        
+        if not has_text_layer(file_path):
+            logger.info("No text layer found. Attempting OCRmyPDF preprocessing...")
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
+            os.close(tmp_fd)
+            if run_ocrmypdf(file_path, tmp_path):
+                target_pdf_path = tmp_path
+                cleanup_needed = True
+
+        # Extract Raw Text for classification
+        raw_text = ""
+        with pdfplumber.open(target_pdf_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    raw_text += text + "\n"
+                    
+        # If still no text, fallback to extracting as images with easyocr
+        if not raw_text.strip():
+             raw_text = ocr_pdf_pages_as_images(target_pdf_path)
+
+        # 2. Normalize text
+        normalized_text = post_ocr_normalization(raw_text)
+        
+        # 3. Classification
+        doc_type = classify_document(normalized_text)
+        logger.info(f"Document classified as: {doc_type}")
+        
+        # 4. Routing logic
+        unified_result = {
+            "document_type": doc_type,
+            "lab_tests": [],
+            "vitals": {},
+            "findings": {},
+            "impression": [],
+            "extracted_text": normalized_text
+        }
+
+        if doc_type == "lab":
+            extractor = LabReportExtractor()
+            lab_result = extractor.process_pdf(target_pdf_path)
+            
+            # Map legacy lab format back into the unified result
+            extracted_tests = lab_result.get("lab_tests", {})
+            test_list = []
+            if isinstance(extracted_tests, dict):
+                for k, v in extracted_tests.items():
+                    test_list.append({
+                        "test_name": k,
+                        "value": v.get("value"),
+                        "unit": v.get("unit"),
+                        "reference_range": v.get("reference_range")
+                    })
+            elif isinstance(extracted_tests, list):
+                test_list = extracted_tests
+                
+            unified_result["lab_tests"] = test_list
+            unified_result["metadata"] = lab_result.get("metadata", {})
+            unified_result["metadata"]["document_type"] = "lab"
+            
+        elif doc_type == "radiology":
+            rad_data = extract_radiology_data(normalized_text)
+            unified_result.update(rad_data)
+            unified_result["metadata"] = {"document_type": "radiology"}
+            
+        elif doc_type == "clinical":
+            clin_data = extract_clinical_data(normalized_text)
+            unified_result.update(clin_data)
+            unified_result["metadata"] = {"document_type": "clinical"}
+            
+        # Cleanup temp file
+        if cleanup_needed and os.path.exists(target_pdf_path):
+            os.remove(target_pdf_path)
+            
+        return unified_result
+
     except Exception as e:
         logger.error(f"Error in extract_pdf_text: {e}")
         return None

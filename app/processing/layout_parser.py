@@ -276,6 +276,63 @@ class LayoutParser:
             
         return True
 
+    def _clean_test_name(self, name: str) -> List[str]:
+        """
+        Cleans the test name, removes noise words, limits length,
+        normalizes cases, and splits multi-tests if necessary.
+        Returns a list of clean test names.
+        """
+        if not name:
+            return []
+            
+        # 1. Remove noise words
+        noise_words = ["method", "specimen", "dipstick", "microscopy", "sample", "test"]
+        name_lower = name.lower()
+        for nw in noise_words:
+            # Need word boundaries to avoid replacing letters inside words
+            name_lower = re.sub(rf'\b{nw}\b', '', name_lower)
+
+        # Remove trailing/leading punctuation
+        name_lower = re.sub(r'^[^\w\s]+|[^\w\s]+$', '', name_lower).strip()
+
+        if not name_lower:
+            return []
+
+        # 2. Normalize names
+        name_lower = re.sub(r'\brbc\b', 'RBC', name_lower)
+        name_lower = re.sub(r'\bwbc\b', 'WBC', name_lower)
+        name_lower = re.sub(r'\bph\b', 'pH', name_lower)
+        name_lower = re.sub(r'\bmcv\b', 'MCV', name_lower)
+        name_lower = re.sub(r'\bmchc\b', 'MCHC', name_lower)
+        name_lower = re.sub(r'\bmch\b', 'MCH', name_lower)
+        name_lower = re.sub(r'\bpcv\b', 'PCV', name_lower)
+        name_lower = re.sub(r'\besr\b', 'ESR', name_lower)
+        
+        # Split multi-tests
+        # Some very specific known combos: "mucus occult blood"
+        if "mucus occult blood" in name_lower.lower():
+            return ["Mucus", "Occult Blood"]
+            
+        # Capitalize remaining lowercase words
+        words = []
+        for w in name_lower.split():
+            if w.islower() and len(w) > 3:
+                words.append(w.capitalize())
+            elif w.islower():
+                # small words or already capitalized formats like RBC
+                words.append(w.capitalize() if w not in ["of", "and", "in"] else w)
+            else:
+                words.append(w)
+                
+        # 3. Limit length to last 3 meaningful words if it's too long
+        if len(words) > 3:
+            words = words[-3:]
+            
+        final_name = " ".join(words)
+        if final_name:
+            return [final_name]
+        return []
+
     def _has_medical_context(self, val_token: Dict, test_name: Optional[str], unit: Optional[str], columns: List[List[Dict]], dyn_h: float, dyn_w: float) -> bool:
         """
         Implements the Medical Context Rule:
@@ -480,12 +537,14 @@ class LayoutParser:
                     # 4. Context Layer & Confidence Scoring
                     if test_name and self._is_valid_test_name(test_name):
                         if self._has_medical_context(t, test_name, unit, columns, dyn_h, dyn_w):
-                            entry = {
-                                "test_name": self.normalize_term(test_name),
-                                "value": val,
-                                "unit": unit,
-                                "reference_range": ref_range
-                            }
+                            clean_names = self._clean_test_name(test_name)
+                            for c_name in clean_names:
+                                entry = {
+                                    "test_name": self.normalize_term(c_name),
+                                    "value": val,
+                                    "unit": unit,
+                                    "reference_range": ref_range
+                                }
                             # Step 8: Confidence Scoring
                             score = self._calculate_entry_score(entry, t, y_drift, dyn_h)
                             

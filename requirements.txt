@@ -11,3 +11,4 @@ easyocr
 pillow
 opencv-python-headless
 numpy
+ocrmypdf

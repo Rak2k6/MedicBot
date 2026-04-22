@@ -78,9 +78,13 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         with open(result_filename, 'w', encoding='utf-8') as f:
                             f.write(json_response)
                             
+                        doc_type = extracted_data.get('document_type', 'lab')
+                        num_tests = len(extracted_data.get('lab_tests', []))
+                        
                         await update.message.reply_text(
                             f"Extraction successful!\n"
-                            f"Found {len(extracted_data.get('lab_tests', {}))} lab tests.\n"
+                            f"Document categorized as: {doc_type.upper()}\n"
+                            f"Found {num_tests} lab tests and {len(extracted_data.get('findings', {}))} findings.\n"
                             f"The data is too large for a text message, so I've attached it as a file."
                         )
                         
