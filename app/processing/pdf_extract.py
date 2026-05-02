@@ -14,6 +14,7 @@ from .ocr_utils import has_text_layer, run_ocrmypdf, post_ocr_normalization
 from .document_classifier import classify_document
 from .clinical_extractor import extract_clinical_data
 from .radiology_extractor import extract_radiology_data
+from app.preprocessing.text_prep import preprocess
 from typing import List, Dict, Any
 import tempfile
 from config.defaults import get_setting
@@ -203,14 +204,18 @@ def extract_pdf_text(file_path: str) -> dict:
         logger.info(f"Document classified as: {doc_type}")
         
         # 4. Routing logic
-        unified_result = {
-            "document_type": doc_type,
-            "lab_tests": [],
-            "vitals": {},
             "findings": {},
             "impression": [],
             "extracted_text": normalized_text
         }
+
+        # --- DEBUG: Preprocessing Integration ---
+        segments = preprocess(normalized_text)
+        print("=== PREPROCESSED SEGMENTS ===")
+        for s in segments:
+            print(s)
+        print("==============================")
+        # ----------------------------------------
 
         if doc_type == "lab":
             extractor = LabReportExtractor()
@@ -240,7 +245,8 @@ def extract_pdf_text(file_path: str) -> dict:
             unified_result["metadata"] = {"document_type": "radiology"}
             
         elif doc_type == "clinical":
-            clin_data = extract_clinical_data(normalized_text)
+            # Pass preprocessed segments instead of raw text
+            clin_data = extract_clinical_data(segments)
             unified_result.update(clin_data)
             unified_result["metadata"] = {"document_type": "clinical"}
             
